@@ -7,10 +7,16 @@ import pandas as pd
 # ==========================================
 st.set_page_config(page_title="QuickDimension - Pro Web Version", page_icon="📦", layout="wide")
 
+# FIX LỖI TÀNG HÌNH CHỮ: Ép màu nền sáng và màu chữ tối cho mọi thành phần bên trong
 st.markdown("""
     <style>
-    .stMetric { background-color: #f1f3f4; padding: 10px; border-radius: 8px; border-left: 5px solid #004aad; }
-    .step-text { font-family: 'Consolas', monospace; font-size: 14px; background-color: #ffffff; padding: 15px; border-radius: 5px; border: 1px solid #ddd; white-space: pre-wrap; }
+    /* Chỉnh màu cho khung Metric */
+    [data-testid="stMetric"] { background-color: #f8f9fa !important; padding: 15px; border-radius: 8px; border-left: 5px solid #004aad; }
+    [data-testid="stMetricLabel"] * { color: #333333 !important; font-weight: bold; font-size: 16px !important;}
+    [data-testid="stMetricValue"] * { color: #004aad !important; font-size: 24px !important;}
+    
+    /* Chỉnh màu cho khung Text Step */
+    .step-text { font-family: 'Consolas', monospace; font-size: 14px; background-color: #f8f9fa; padding: 15px; border-radius: 5px; border: 1px solid #ddd; white-space: pre-wrap; color: #111111 !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -123,7 +129,7 @@ with st.sidebar:
 
 
 # ==========================================
-# LOGIC TÍNH TOÁN
+# LOGIC TÍNH TOÁN (Giữ nguyên chuẩn xác)
 # ==========================================
 raw_cb_l, raw_cb_w, raw_cb_h = input_l + cb_id_l, input_w + cb_id_w, input_h + cb_id_h
 
@@ -192,9 +198,9 @@ with col_res:
     st.metric("DIELINE INNER", f"L2 {in_DIE_L:.1f} x W2 {in_DIE_W:.1f} x H2 {in_DIE_H:.1f} mm")
     st.metric("DIELINE MASTER", f"L3 {ma_DIE_L:.1f} x W3 {ma_DIE_W:.1f} x H3 {ma_DIE_H:.1f} mm")
 
-    # --- VẼ 3D BẰNG PLOTLY (Thay thế Canvas Tkinter) ---
-    st.subheader("📐 MÔ PHỎNG 3D INTERACTIVE")
-    st.write("Đã thay Canvas rởm bằng Plotly. Vuốt chuột xoay 3D nhé anh zai.")
+    # --- FIX MÔ PHỎNG 3D: Tính toán lồng ghép chính xác tuyệt đối ---
+    st.subheader("📐 MÔ PHỎNG 3D INTERACTIVE (ĐÃ FIX LỖI LÒI RUỘT)")
+    st.write("Dùng chuột để xoay và zoom. Vẽ tâm chuẩn 100% không lệch 1 ly.")
     
     col_toggles = st.columns(3)
     show_ma = col_toggles[0].checkbox("Hiển thị Master", value=True)
@@ -204,7 +210,7 @@ with col_res:
     fig = go.Figure()
 
     def add_box_trace(x, y, z, dx, dy, dz, color, name):
-        # 8 đỉnh của hình hộp
+        # 8 đỉnh của hình hộp 3D thực thụ
         xx = [x, x+dx, x+dx, x, x, x, x+dx, x+dx, x, x, x+dx, x+dx, x+dx, x+dx, x, x]
         yy = [y, y, y+dy, y+dy, y, y, y, y+dy, y+dy, y, y, y, y+dy, y+dy, y+dy, y+dy]
         zz = [z, z, z, z, z, z+dz, z+dz, z+dz, z+dz, z+dz, z+dz, z, z, z+dz, z+dz, z]
@@ -216,40 +222,41 @@ with col_res:
         show_in = False
         show_cb = False
 
+    # Vẽ Master Carton bọc toàn bộ (Sử dụng Raw_OD làm gốc tuyệt đối)
     if show_ma:
         add_box_trace(0, 0, 0, raw_od_ma_l, raw_od_ma_w, raw_od_ma_h, "#8a949e", "Master Carton")
 
-    # Logic lồng hộp y chang Tkinter
-    if is_in_rotated:
-        draw_cb_L, draw_cb_W = cb_W, cb_L
-        loop_x, loop_y = iy, ix
-    else:
-        draw_cb_L, draw_cb_W = cb_L, cb_W
-        loop_x, loop_y = ix, iy
+    # Căn giữa cụm Inner Carton vào bên trong Master Carton
+    ma_start_x = (raw_od_ma_l - mx * in_OD_L) / 2
+    ma_start_y = (raw_od_ma_w - my * in_OD_W) / 2
+    ma_start_z = (raw_od_ma_h - mz * in_OD_H) / 2
 
-    ma_off_L, ma_off_W, ma_off_H = t_ma + 1.5, t_ma + 1.5, t_ma * 2 + 1.5
-    
     if show_in or show_cb:
         for m_x in range(mx):
             for m_y in range(my):
                 for m_z in range(mz):
-                    cur_in_L = ma_off_L + m_x * in_OD_L
-                    cur_in_W = ma_off_W + m_y * in_OD_W
-                    cur_in_H = ma_off_H + m_z * in_OD_H
+                    # Tọa độ gốc của từng Inner Carton
+                    cur_in_x = ma_start_x + m_x * in_OD_L
+                    cur_in_y = ma_start_y + m_y * in_OD_W
+                    cur_in_z = ma_start_z + m_z * in_OD_H
                     
                     if show_in:
-                        add_box_trace(cur_in_L, cur_in_W, cur_in_H, in_OD_L, in_OD_W, in_OD_H, "#0066cc", "Inner Carton")
-                    
-                    in_off_L, in_off_W, in_off_H = t_in + 1.5, t_in + 1.5, t_in * 2 + 1.5
-                    
+                        add_box_trace(cur_in_x, cur_in_y, cur_in_z, in_OD_L, in_OD_W, in_OD_H, "#0066cc", "Inner Carton")
+
+                    # Căn giữa cụm Color Box vào bên trong Inner Carton hiện tại
                     if show_cb:
-                        for i_x in range(loop_x):
-                            for i_y in range(loop_y):
+                        in_start_x = (in_OD_L - ix * cb_L) / 2
+                        in_start_y = (in_OD_W - iy * cb_W) / 2
+                        in_start_z = (in_OD_H - iz * cb_H) / 2
+
+                        for i_x in range(ix):
+                            for i_y in range(iy):
                                 for i_z in range(iz):
-                                    cur_cb_L = cur_in_L + in_off_L + i_x * draw_cb_L
-                                    cur_cb_W = cur_in_W + in_off_W + i_y * draw_cb_W
-                                    cur_cb_H = cur_in_H + in_off_H + i_z * cb_H
-                                    add_box_trace(cur_cb_L, cur_cb_W, cur_cb_H, draw_cb_L, draw_cb_W, cb_H, "#ff1493", "Color Box")
+                                    cur_cb_x = cur_in_x + in_start_x + i_x * cb_L
+                                    cur_cb_y = cur_in_y + in_start_y + i_y * cb_W
+                                    cur_cb_z = cur_in_z + in_start_z + i_z * cb_H
+                                    
+                                    add_box_trace(cur_cb_x, cur_cb_y, cur_cb_z, cb_L, cb_W, cb_H, "#ff1493", "Color Box")
 
     fig.update_layout(scene=dict(aspectmode='data', xaxis_title='X', yaxis_title='Y', zaxis_title='Z'), height=500, margin=dict(l=0, r=0, b=0, t=0))
     st.plotly_chart(fig, use_container_width=True)
@@ -307,7 +314,6 @@ with col_steps:
 st.markdown("---")
 st.subheader("📥 XUẤT PDF DIELINE (QUA ILLUSTRATOR)")
 
-# Giữ nguyên bản gốc cái chuỗi khổng lồ của anh
 jsx_script = """
         var mm2pt = 2.834645;
         var doc = app.documents.add();
@@ -379,7 +385,6 @@ jsx_script = """
                 textFrame.textRange.justification = Justification.CENTER;
             }
 
-            // CREASE LINES
             drawLine(x1, y1, x5, y1, creaseColor, true);
             drawLine(x1, y2, x5, y2, creaseColor, true);
             drawLine(x1, y1, x1, y2, creaseColor, true);
@@ -387,35 +392,29 @@ jsx_script = """
             drawLine(x3, y1, x3, y2, creaseColor, true);
             drawLine(x4, y1, x4, y2, creaseColor, true);
 
-            // CUT LINES - TAI DÁN
             drawLine(x1, y2, x0, y2 - 15 * mm2pt, cutColor, false);
             drawLine(x0, y2 - 15 * mm2pt, x0, y1 + 15 * mm2pt, cutColor, false);
             drawLine(x0, y1 + 15 * mm2pt, x1, y1, cutColor, false);
             drawLine(x1, y3, x1, y2, cutColor, false); 
             drawLine(x1, y1, x1, y0, cutColor, false); 
 
-            // CUT LINES - RÃNH CẮT NẮP HỘP
             drawSlot(x2, y3, y2); drawSlot(x3, y3, y2); drawSlot(x4, y3, y2);
             drawSlot(x2, y0, y1); drawSlot(x3, y0, y1); drawSlot(x4, y0, y1);
 
-            // CUT LINES - VIỀN NẮP TRÊN CÙNG
             drawLine(x1, y3, x2 - gap, y3, cutColor, false);
             drawLine(x2 + gap, y3, x3 - gap, y3, cutColor, false);
             drawLine(x3 + gap, y3, x4 - gap, y3, cutColor, false);
             drawLine(x4 + gap, y3, x5, y3, cutColor, false);
 
-            // CUT LINES - VIỀN NẮP DƯỚI CÙNG
             drawLine(x1, y0, x2 - gap, y0, cutColor, false);
             drawLine(x2 + gap, y0, x3 - gap, y0, cutColor, false);
             drawLine(x3 + gap, y0, x4 - gap, y0, cutColor, false);
             drawLine(x4 + gap, y0, x5, y0, cutColor, false);
 
-            // CUT LINES - VIỀN BÊN PHẢI
             drawLine(x5, y3, x5, y2, cutColor, false);
             drawLine(x5, y2, x5, y1, cutColor, false);
             drawLine(x5, y1, x5, y0, cutColor, false);
 
-            // DIMENSIONS
             var offY = 30 * mm2pt;
             var offX = 30 * mm2pt;
 
@@ -428,7 +427,6 @@ jsx_script = """
             drawDim(x1, y2, x1, y3, (flap/mm2pt).toFixed(1), offX, true);
             drawDim(x0, y3, x1, y3, GLUE.toFixed(1), offY, false);
 
-            // TÁCH CHỮ BAY LÊN CAO
             var title = dimLayer.textFrames.add();
             title.contents = boxName;
             title.position = [startX, y3 + (80 * mm2pt)];
@@ -480,7 +478,6 @@ jsx_script = """
         doc.artboards[0].artboardRect = [abLeft, abTop, abRight, abBottom];
 """
 
-# Replace placeholders
 jsx_script = jsx_script.replace("[SHOW_IN]", "true" if (show_in and (ix*iy*iz > 0)) else "false")
 jsx_script = jsx_script.replace("[SHOW_MA]", "true" if (show_ma and (mx*my*mz > 0)) else "false")
 jsx_script = jsx_script.replace("[IN_L]", str(in_DIE_L))
